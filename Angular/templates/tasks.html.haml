@@ -1,0 +1,175 @@
+.a-task__content
+  .a-task__ws-box.clearfix
+    .empl-home__block-body-align(ng-class="{ 'empl-task__align-center' : tasks_ctrl.workstreams.length < 1 }")
+      %span(ng-if="tasks_ctrl.is_permitted")
+        %div.buttonView--center(ng-if="!tasks_ctrl.select_workstream" ng-click="tasks_ctrl.displayWorkstream()")
+          %div.ws-btn-mod.buttonView.buttonView--primary.buttonView--large
+            %span
+              = I18n.t('board.tasks.ws_search_btn')
+        .task-select__wrap(ng-if="tasks_ctrl.select_workstream")
+          %ui-select.main-select.user-select(theme="selectize"
+                                             ng-model="task.workstream_selected"
+                                             workstream-assign
+                                             required="true"
+                                             ng-class="{'resource-loader-display':resource_search_loader}"
+                                             on-select="tasks_ctrl.addWorkstream($select.selected)"
+                                             data-qa-id="company-tasks-workstream")
+            %ui-select-match(placeholder="#{I18n.t('board.tasks.ws_search')}")
+            %ui-select-choices(refresh="tasks_ctrl.searchWorkstream($select)"
+                               refresh-delay="500"
+                               ng-class="{ 'dropdown-empty': !$select.workstreams.length }"
+                               repeat="workstream in $select.workstreams")
+              %span
+                {{ ::workstream.name }}
+
+      .div(ng-if="tasks_ctrl.workstreams.length < 1")
+        .blank-item__container
+          %i.icon.icon-clipboard-list.tasks__blank-item
+        %p.activity__blank-state-text
+          = I18n.t('board.tasks.blank_state_text')
+
+      %span.m-r-2.task__dropdown(uib-dropdown ng-if="tasks_ctrl.workstreams.length>0 && !tasks_ctrl.workstreams_loading")
+        %button.simple-btn.simple-btn--grey-250.min-9.empl-task__view-btn(uib-dropdown-toggle)
+          {{ tasks_ctrl.filter_button_text }}
+        %ul.task__filter-drop-down(uib-dropdown-menu)
+          %li(ng-repeat="filter in tasks_ctrl.filter_options" ng-click="tasks_ctrl.filterTaskBy(filter.label, $index)")
+            {{ ::filter.text }}
+
+    .a-people__ws-list.p-t-3
+      .task__loading-workstreams(ng-if="tasks_ctrl.workstream_loading")
+        =I18n.t('board.tasks.loading')
+
+      .div(ng-if="tasks_ctrl.visibleWorkstreamCount() <= 0 && tasks_ctrl.workstreams.length >= 1 && tasks_ctrl.display_task == 'incomplete'")
+        .inblank-item__container
+          %i.icon.icon-clipboard-empty.tasks__blank-item
+        %p.activity__blank-state-text
+          = I18n.t('board.tasks.incomplete_blank_state_text')
+
+      %uib-accordion(close-others="false" ng-if="!tasks_ctrl.workstream_loading")
+        %uib-accordion-group.a-tasks__accordion-group.fadeIn(ng-repeat="workstream in tasks_ctrl.workstreams" is-open="workstream.is_open"
+                             ng-if="workstream.show_workstream" style="-webkit-animation-duration:{{$index * 0.5}}s")
+          %uib-accordion-heading
+            %span.empl-ws__li-head(ng-class="{'empl-ws__li-head-active': workstream.is_open}" ng-click="tasks_ctrl.loadTasks(workstream)")
+              %span.inline-flex
+                %i.a-people__ws-li-head-arrow(ng-if="!workstream.is_open")
+                %i.a-people__ws-li-head-arrow-down(ng-if="workstream.is_open")
+                %span.empl-ws__li-head-text
+                  {{ ::workstream.name }}
+                %i.a-simple-table__action.icon.icon-bin(ng-confirm="#{I18n.t('confirms.workstream')}" ng-click="tasks_ctrl.deleteWorkstream(workstream)" ng-if="tasks_ctrl.is_permitted")
+                %i.overdue.icon.icon-clock(uib-tooltip="#{I18n.t('board.activities.my_tasks.overdue')}" ng-if="workstream.overdue_tasks_count")
+              %span
+                %span.empl-ws__li-head-text(ng-class="{true: 'a-people__ws-completed'}[!workstream.outstanding_tasks_count]")
+                  %span(ng-class="{ 'empl-ws__li-head-text-color' : workstream.overdue_tasks_count }")
+                    {{ tasks_ctrl.workstreamProgress(workstream) }}
+          .a-people__ws-li-content.accordian-content(ng-if = "workstream.is_open")
+            %ul.a-people__ws-li-checklist.tasks
+              %li.a-task__li(ng-repeat="task in workstream.tasks | orderBy : 'due_date' "  ng-show="task.show_task")
+                %uib-accordion-group.a-tasks__accordion-group(is-open="task.is_open" ng-click="tasks_ctrl.checkAccordion(task)")
+                  %uib-accordion-heading
+                    %label.a-people__ws-li-check.no-box-shadow.a-lablel-hover(ng-class="{'completed': 'a-people__ws-checked'}[task.state]")
+                      .a-people__ws-li-check-wrap.a_task__header-ellipsis
+                        %label.label-checkbox-std.checkbox-m(for="task-{{task.id}}"
+                                    ng-click="tasks_ctrl.updateTask(workstream, task, $event)"
+                                    ng-if="!roadmap_milestones_ctrl.userOnboarding")
+                          %input(type="checkbox"
+                                ng-model="task.state"
+                                ng-true-value="'completed'"
+                                ng-false-value="'in_progress'"
+                                id="task-{{task.id}}")
+                          .label-checkbox-std__indicator
+                        %label(for="task-{{task.id}}")
+                          %p.label-text-block
+                            {{ ::task.name }}
+                            %span
+                              %span.due-date(ng-class="{ 'task__over-due-date' : tasks_ctrl.isTaskOverdue(task) }")
+                                Due: {{ tasks_ctrl.displayDeadline(task) }}
+                      .a-people__ws-li-check-pic-wrap.a-people__initals-wrap(ng-if="task.owner" uib-tooltip="{{ task.owner.full_name }}"
+                                                                             tooltip-class="a-people__picture-assigned-task-tooltip"
+                                                                             ng-click="tasks_ctrl.openProfile(task.owner.id)")
+                        .a-people__ws-li-check-pic.img-adjustment(ng-style="{'background-image':'url({{ task.owner.picture }})'}"
+                                                     ng-if="task.owner.picture")
+                        .a-people__img-initals(ng-if="!task.owner.picture || task.owner")
+                          {{task.owner.first_name.charAt(0).toUpperCase()}} {{task.owner.last_name.charAt(0).toUpperCase()}}
+                      .a-people__ws-li-check-pic-wrap.a-people__initals-wrap(ng-if="!task.owner" uib-tooltip="Unassigned" tooltip-class="a-people__picture-task-tooltip")
+                        .a-people__tasks-li-head-author.question-mark-task-holder.question-mark-holder
+                          ?
+                  .a-people__ws-li-content.inner-accordian-content(ng-if="!task._display_accordian")
+                    %ul.a-people__ws-li-checklist.tasks.task-inner
+                      %li.a-task__li.a-people__ws-li-check
+                        %label.task-desc-check(ng-if="!task.description")
+                          %i
+                            = I18n.t('admin.company.tasks.no_task_description')
+                        %span.a_task___ellipsis(ng-if="task.description")
+                          %b
+                            = I18n.t('board.tasks.notes_description')
+                          %label.task-lable-check(ng-bind-html="task.description | linky:'_blank' | fixHrefs")
+                      %li.task__wrap.a-task__li.a-people__ws-li-check.info-block(ng-if="tasks_ctrl.is_permitted || task.attachments.length")
+                        .inline-block
+                          .a-company__tasks-li-action(ngf-select="tasks_ctrl.uploadAttachment(task, $file)"
+                                                      ng-if="tasks_ctrl.is_permitted")
+                            %i.a-company__tasks-li-action-icon.icon.icon-clip
+                            %span.a-company__tasks-li-action-text.hover-effect
+                              = I18n.t('admin.company.tasks.attach')
+
+                          %span.a-company__tasks-li-action(ng-if="tasks_ctrl.is_permitted && !task.isAssign" data-qa-id="company-tasks-workstream-assign")
+                            %div.task-assign(ng-if="!tasks_ctrl.isAssigned(task)" ng-click="tasks_ctrl.enableTaskAssign(task)")
+                              %i.a-company__tasks-li-action-icon.icon.icon-user-dark
+                              %span.a-company__tasks-li-action-text.hover-effect
+                                = I18n.t('admin.company.tasks.assign')
+                            %div.task-assigned(ng-if="tasks_ctrl.isAssigned(task)" ng-click="tasks_ctrl.removeOwner(task)")
+                              %i.a-company__tasks-li-action-icon.icon.icon-user-dark
+                              %span.a-company__tasks-li-action-text.assigned-task.hover-effect
+                                = I18n.t('admin.company.tasks.change_task_assignee')
+
+                          .a-company__tasks-li-action.a-company__tasks-li-action-owner(ng-if="tasks_ctrl.is_permitted")
+                            .task-select__wrap(ng-if="task.isAssign")
+                              %ui-select.main-select.user-select(theme="selectize"
+                                                                 ng-model="task.owner_selected"
+                                                                 task-assign
+                                                                 required="true"
+                                                                 ng-class="{'resource-loader-display':resource_search_loader}"
+                                                                 ng-blur="tasks_ctrl.disableTaskAssign(task)"
+                                                                 on-select="tasks_ctrl.setOwner(task, $select.selected)"
+                                                                 data-qa-id="company-tasks-workstream-owner")
+                                %ui-select-match(placeholder="#{I18n.t('admin.company.tasks.users_search')}")
+                                %ui-select-choices(refresh="tasks_ctrl.searchOwner($select)"
+                                                   refresh-delay="500"
+                                                   ng-class="{ 'dropdown-empty': !$select.users.length }"
+                                                   repeat="user in $select.users")
+                                  %span
+                                    {{ ::user.first_name }} {{ ::user.last_name }}
+
+                            .a-tasks-assign(ng-if="tasks_ctrl.isAssigned(task)")
+                              %i.a-tasks-assign-icon.icon.icon-check-rounded(ng-click="tasks_ctrl.removeOwner(task)")
+
+                          %span.a-people__ws-board-li-check-text.date_position(ng-if="tasks_ctrl.is_permitted && !task._display_deadline" ng-click="tasks_ctrl.toggleDeadlineDisplay(task)")
+                            %i.icon.icon-clock
+                            %span.hover-effect
+                              {{ task.due_date | date: 'MMM dd, yyyy' }}
+
+                          .roadmap-date-input__wrap.task-date_wrap(ng-if="task._display_deadline && tasks_ctrl.is_permitted")
+                            %input.admin-input__input.admin-input__input--datepicker(type="text"
+                                                                                     date-format
+                                                                                     name="due_date"
+                                                                                     ng-model="task.due_date"
+                                                                                     mo-date-input="{{ tasks_ctrl.dateFormat }}"
+                                                                                     angular-datepicker-light="tasks_ctrl.getDatepickerOptions('.admin-input__cal-btn')"
+                                                                                     show-button-bar="false"
+                                                                                     required="true"
+                                                                                     ng-blur="tasks_ctrl.updateConnectionValidateDate(task, workstream, 'blur')"
+                                                                                     ng-change="tasks_ctrl.updateConnectionValidateDate(task, workstream, 'change')"
+                                                                                     ng-model-options="{ debounce: 300 }"
+                                                                                     on-open-focus="false")
+                            %span.admin-input__cal-btn
+                              %i.icon.icon-calendar
+
+                          %ul(ng-if="task.attachments.length")
+                            %li.a-company__tasks-attach-li(ng-repeat="attachment in task.attachments")
+                              %a.a-company__tasks-attach-li-text(href="{{attachment.file.url}}"
+                                                                 download="{{attachment.original_filename}}")
+                                {{ ::attachment.original_filename }}
+                              %span.a-company__tasks-attach-li-action.icon.icon-cross(ng-click="tasks_ctrl.removeAttachment(task, attachment)"
+                                                                                      ng-if="tasks_ctrl.is_permitted")
+            .empl-task__loading(ng-if="workstream._tasks_loading")
+              %span
+                = I18n.t('board.tasks.workstreams_loading')
